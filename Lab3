@@ -1,0 +1,15 @@
+$adap = get-ciminstance win32_networkadapterconfiguration
+$ipenabled=(get-ciminstance win32_networkadapterconfiguration).IPEnabled
+$filter = $adap |Where-Object ipenabled -Match true
+$table=$filter|Foreach-Object{
+    
+    New-Object PSObject -Property @{
+	Description= $_.Description
+        Index = $_.Index
+        IP = $_.IPAddress
+        Netmask = $_.ipsubnet
+        Domain = $_.dnsdomain
+        "DNS Servers" = $_.dnsserversearchorder
+    }
+  } |Format-Table -autosize Description, Index, IP, Netmask, Domain, "DNS Servers"
+$table
