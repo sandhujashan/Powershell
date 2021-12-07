@@ -1,0 +1,91 @@
+write-output "The Description of hardware:"
+function Description {
+Get-WmiObject Win32_ComputerSystem| format-list Description
+}
+Description
+
+write-output "Information for Operating system"
+function os{
+Get-CimInstance Win32_OperatingSystem| format-list Name, Version
+}
+OS
+
+write-output "CPU Information"
+function cpu-info{
+Get-CimInstance Win32_Processor| format-list Description, maxclockspeed,NumberOfCores,L2CacheSize,L3CacheSize
+}
+cpu-info
+
+write-output "RAM Information"
+function memory{
+$totalcapacity = 0
+get-wmiobject -class win32_physicalmemory |
+foreach {
+ new-object -TypeName psobject -Property @{
+ Vendor = $_.manufacturer
+ Description =$_.description
+ "Size(MB)" = $_.capacity/1mb
+ Bank = $_.banklabel
+ Slot = $_.devicelocator
+ }
+ $totalcapacity += $_.capacity/1mb
+} |
+ft -auto Vendor, Description, "Size(MB)", Bank, Slot
+write-output "Total RAM installed is: ${totalcapacity}MB "
+}
+memory
+
+write-output "Disk Drive Information"
+function drives{
+  $diskdrives = Get-CIMInstance CIM_diskdrive
+
+  foreach ($disk in $diskdrives) {
+       $partitions = $disk|get-cimassociatedinstance -resultclassname CIM_diskpartition
+       foreach ($partition in $partitions) {
+             $logicaldisks = $partition | get-cimassociatedinstance -resultclassname CIM_logicaldisk
+             foreach ($logicaldisk in $logicaldisks) {
+                      new-object -typename psobject -property @{Manufacturer=$disk.Manufacturer
+                                                                Model=$disk.model
+                                                                Space_free=$logicaldisk.freespace
+								"Percentage Free(%)"=($logicaldisk.freespace /$logicaldisk.size)*100 -as [int]
+                                                                "Size(GB)"=$logicaldisk.size / 1gb -as [int]
+                                                                }|Format-Table Model, Space_free,"Percentage Free(%)","Size(GB)"
+             }
+       }
+   }
+}
+drives
+
+write-output "Network Information"
+function network{ 
+$adap = get-ciminstance win32_networkadapterconfiguration
+$ipenabled=(get-ciminstance win32_networkadapterconfiguration).IPEnabled
+$filter = $adap |Where-Object ipenabled -Match true
+$table=$filter|Foreach-Object{
+    New-Object PSObject -Property @{
+	Description= $filter.Description
+        Index = $filter.Index
+        IP = $filter.IPAddress
+        Netmask = $filter.ipsubnet
+        Domain = $filter.dnsdomain
+        
+        "DNS Servers" = $filter.dnsserversearchorder
+    }
+  } |Format-Table Description, Index, IP, Netmask, Domain, "DNS Servers"
+$table
+}
+network
+
+write-output "Vediocard Information"
+function Vcard{
+$card= Get-WmiObject win32_videocontroller
+$list=$card|foreach-object{
+	New-Object PSObject -Property @{
+		Name=$card.Name
+		Description=$card.description
+		"Resolution"=$card.videomodedescription
+		}
+	}|format-list Name,Description,Resolution
+	$list
+}
+Vcard
